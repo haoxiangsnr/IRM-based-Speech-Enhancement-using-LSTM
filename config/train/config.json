@@ -1,0 +1,56 @@
+{
+    "name": "irm_test",
+    "n_gpu": 1,
+    "seed": 0,
+    "use_cudnn": true,
+    "save_location": "/media/imucs/DataDisk/haoxiang/Experiment/UNet/dilation/decoder",
+    "description": "IRM DNN",
+    "visualize_metrics_period": 5,
+    "model": {
+        "module": "models.unet_dilation",
+        "main": "UNet",
+        "args": {
+            "n_layers": 12,
+            "channels_interval": 24,
+            "kernel_size_in_encoder": 15,
+            "kernel_size_in_decoder": 5,
+            "dilation_in_encoder": {
+                "layers": [],
+                "dilated_rates": []
+            },
+            "dilation_in_decoder": {
+                "layers": [4, 5],
+                "dilated_rates": [2, 2]
+            }
+        }
+    },
+    "loss_function": {
+        "module": "models.loss",
+        "main": "mse_loss",
+        "args": {}
+    },
+    "optimizer": {
+        "lr": 0.001
+    },
+    "trainer": {
+        "epochs": 300,
+        "save_period": 10
+    },
+    "train_dataset": {
+        "mixture": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/noise_7_clean_900/train/mixture.npy",
+        "clean": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/noise_7_clean_900/train/clean.npy",
+        "limit": null,
+        "offset": 0,
+        "shuffle": true,
+        "num_workers": 40,
+        "batch_size": 150,
+        "apply_normalization": false
+    },
+    "valid_dataset": {
+        "mixture": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/noise_7_clean_900/test/mixture.npy",
+        "clean": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/noise_7_clean_900/test/clean.npy",
+        "limit": 100,
+        "offset": 0,
+        "apply_normalization": false
+    }
+}
