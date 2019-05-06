@@ -37,20 +37,18 @@
         "save_period": 10
     },
     "train_dataset": {
-        "mixture": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/noise_7_clean_900/train/mixture.npy",
-        "clean": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/noise_7_clean_900/train/clean.npy",
+        "mixture": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/DNN/pad_3_400_50/train/mixture.npy",
+        "clean": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/DNN/pad_3_400_50/train/clean.npy",
         "limit": null,
         "offset": 0,
         "shuffle": true,
         "num_workers": 40,
-        "batch_size": 150,
-        "apply_normalization": false
+        "batch_size": 150
     },
     "valid_dataset": {
-        "mixture": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/noise_7_clean_900/test/mixture.npy",
-        "clean": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/noise_7_clean_900/test/clean.npy",
+        "mixture": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/DNN/pad_3_400_50/test/mixture.npy",
+        "clean": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/DNN/pad_3_400_50/test/clean.npy",
         "limit": 100,
-        "offset": 0,
-        "apply_normalization": false
+        "offset": 0
     }
 }

@@ -10,15 +10,16 @@ class TrainDataset(Dataset):
     定义训练集
     """
 
-    def __init__(self, mixture_dataset, clean_dataset, limit=None, offset=0, apply_normalization=False):
+    def __init__(self, mixture_dataset, clean_dataset, limit=None, offset=0):
         """
         构建训练数据集
+
         Args:
             mixture_dataset (str): 带噪语音数据集
             clean_dataset (str): 纯净语音数据集
             limit (int): 数据集的数量上限
             offset (int): 数据集的起始位置的偏移值
-            apply_normalization (bool): 是否规范化（减均值，除标准差）
+            apply_normalization (bool): 是否对输入进行规范化（减均值，除标准差）
         """
         self.apply_normalization = apply_normalization
         mixture_dataset = Path(mixture_dataset)
@@ -37,33 +38,55 @@ class TrainDataset(Dataset):
         print(f"The limit is {limit}.")
         print(f"The offset is {offset}.")
 
-        if limit is None:
-            limit = len(self.mixture_dataset)
+        self.mapping_table = {}
+        self.length = 0
+        for k, v in self.mixture_dataset.items():
+            assert v.shape[1] % 7 == 0
+            self.mapping_table[k] = v.shape[1] // 7
+            self.length += v.shape[1]
 
-        self.keys = list(self.mixture_dataset.keys())
-        self.keys.sort()
-        self.keys = self.keys[offset: offset + limit]
-
-        self.length = len(self.keys)
+        # if limit is None:
+        #     limit = len(self.mixture_dataset)
+        #
+        # self.keys = list(self.mixture_dataset.keys()) # 语句数量
+        # self.keys.sort()
+        # self.keys = self.keys[offset: offset + limit]
+        #
+        # self.length = len(self.keys)
         print(f"Finish, len(finial dataset) == {self.length}.")
 
     def __len__(self):
         return self.length
 
-    def __getitem__(self, item):
-        sample_length = 16384
+    def __getitem__(self, frame_index):
+        i, n_pad = 0, 7
 
-        name = self.keys[item]
-        num = name.split("_")[0]
-        mixture = self.mixture_dataset[name]
-        clean = self.clean_dataset[num]
+        mixture_frames = None
+        clean_frame = None
+        name = ""
 
-        assert mixture.shape == clean.shape
+        # e.g. ("0001_babble_-5", 238)
+        mapping_table_keys = list(self.mapping_table.keys())
+        for i_in_dict, (name, n_frames) in enumerate(self.mapping_table.items()):
+            if i + n_frames < frame_index:
+                i += n_frames
+            elif i + n_frames > frame_index:
+                mixture_lps = self.mixture_dataset[name]
+                clean_lps = self.clean_dataset[name.split("_")[0]]
 
-        # 定长采样
-        mixture, clean = sample_fixed_length_data_aligned(mixture, clean, sample_length)
-        if self.apply_normalization:
-            mixture = apply_mean_std(mixture)
-            clean = apply_mean_std(clean)
+                mixture_offset_in_lps = (frame_index - i) * n_pad # 当前 7 帧在 lps 中偏移值
+                clean_offset_in_lps = frame_index - i # 当前 1 帧在 lps 中偏移值
 
-        return mixture.reshape(1, -1), clean.reshape(1, -1), name
+                mixture_frames = mixture_lps[:, mixture_offset_in_lps: (mixture_offset_in_lps + n_pad)]
+                clean_frame = clean_lps[:, clean_offset_in_lps].reshape(-1, 1)
+                break
+            else:
+                name = mapping_table_keys[i_in_dict + 1]
+                mixture_lps = self.mixture_dataset[name] # 最开始的 7 帧
+                clean_lps = self.clean_dataset[name.split("_")[0]] # 首帧
+                mixture_frames = mixture_lps[:, :n_pad]
+                clean_frame = clean_lps[:, 0].reshape(-1, 1)
+                break
+
+        assert mixture_frames.shape == (257, 7) and clean_frame.shape == (257, 1)
+        return mixture_frames, clean_frame, name

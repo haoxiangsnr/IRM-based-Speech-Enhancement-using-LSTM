@@ -1,6 +1,6 @@
 # IRM based Speech Enhancement using DNN
 
-Inspired by funcwj's [nn-ideal-mask](https://github.com/funcwj/nn-ideal-mask). Compared to his project:
+Inspired by [funcwj](https://github.com/funcwj)'s [nn-ideal-mask](https://github.com/funcwj/nn-ideal-mask). Compared to his project:
 
 - Increased visualization of validation data
 - More structured
