@@ -6,24 +6,26 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
+from data.test_dataset import TestDataset
 from data.train_dataset import TrainDataset
 from trainer.trainer import Trainer
 from utils.utils import initialize_config
 
 
 def main(config, resume):
-    """训练脚本的入口函数
-
-    Steps:
+    """
+    训练脚本的入口函数
+    
+    Notes:
         1. 加载数据集
         2. 初始化模型
         3. 设置优化器
         4. 选择损失函数
         5. 训练脚本 run
 
-    Arguments:
-        config {dict} -- 配置项
-        resume {bool} -- 是否加载最近一次存储的模型断点
+    Args:
+        config (dict): 配置项
+        resume (bool): 是否加载最近一次存储的模型断点
     """
     torch.manual_seed(config["seed"])
     np.random.seed(config["seed"])
@@ -41,7 +43,7 @@ def main(config, resume):
         shuffle=config["train_dataset"]["shuffle"]
     )
 
-    valid_dataset = TrainDataset(
+    valid_dataset = TestDataset(
         mixture_dataset=config["valid_dataset"]["mixture"],
         clean_dataset=config["valid_dataset"]["clean"],
         limit=config["valid_dataset"]["limit"],
@@ -75,14 +77,10 @@ def main(config, resume):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='IRM Estimation using DNN in Speech Enhancement')
-    parser.add_argument("-C", "--config", required=True,
-                        type=str, help="训练配置文件（*.json）")
-    parser.add_argument('-D', '--device', default=None,
-                        type=str, help="本次实验使用的 GPU 索引，e.g. '1,2,3'")
-    parser.add_argument("-R", "--resume", action="store_true",
-                        help="是否从最近的一个断点处继续训练")
+    parser = argparse.ArgumentParser(description='IRM Estimation using DNN in Speech Enhancement')
+    parser.add_argument("-C", "--config", required=True, type=str, help="训练配置文件（*.json）")
+    parser.add_argument('-D', '--device', default=None, type=str, help="本次实验使用的 GPU 索引，e.g. '1,2,3'")
+    parser.add_argument("-R", "--resume", action="store_true", help="是否从最近的一个断点处继续训练")
     args = parser.parse_args()
 
     if args.device:

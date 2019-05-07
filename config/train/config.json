@@ -3,25 +3,16 @@
     "n_gpu": 1,
     "seed": 0,
     "use_cudnn": true,
-    "save_location": "/media/imucs/DataDisk/haoxiang/Experiment/UNet/dilation/decoder",
+    "save_location": "/media/imucs/DataDisk/haoxiang/Experiment/UNet/IRM",
     "description": "IRM DNN",
     "visualize_metrics_period": 5,
     "model": {
-        "module": "models.unet_dilation",
-        "main": "UNet",
+        "module": "models.dnn",
+        "main": "DNN",
         "args": {
-            "n_layers": 12,
-            "channels_interval": 24,
-            "kernel_size_in_encoder": 15,
-            "kernel_size_in_decoder": 5,
-            "dilation_in_encoder": {
-                "layers": [],
-                "dilated_rates": []
-            },
-            "dilation_in_decoder": {
-                "layers": [4, 5],
-                "dilated_rates": [2, 2]
-            }
+            "n_input_frames": 7,
+            "n_fft": 257,
+            "n_hidden_units": 2048
         }
     },
     "loss_function": {
@@ -34,7 +25,7 @@
     },
     "trainer": {
         "epochs": 300,
-        "save_period": 10
+        "save_period": 0
     },
     "train_dataset": {
         "mixture": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/DNN/pad_3_400_50/train/mixture.npy",

@@ -6,7 +6,7 @@ import torch
 
 from trainer.base_trainer import BaseTrainer
 from utils.metrics import compute_PESQ, compute_STOI
-from utils.utils import ExecutionTime
+from utils.utils import ExecutionTime, cal_lps, unfold_spectrum, phase, lps_to_mag, rebuild_waveform
 
 
 class Trainer(BaseTrainer):
@@ -68,11 +68,9 @@ class Trainer(BaseTrainer):
             f"训练损失/{tag}", total / dl_len, epoch)
         visualize_loss("loss", loss_total)
 
-    def _test_epoch(self, epoch):
-        """测试轮
-
-        测试时使用测试集，batch_size 与 num_workers 均为 1，将每次测试后的结果保存至数组，最终返回数组，后续用于可视化
-
+    def _validation_epoch(self, epoch):
+        """
+        验证轮，验证时使用验证集，且 batch_size 与 num_workers 均为 1。
         """
 
         self._set_model_eval()
@@ -82,20 +80,49 @@ class Trainer(BaseTrainer):
         pesq_c_d = []
 
         with torch.no_grad():
-            for i, (data, target, basename_text) in enumerate(self.validation_data_loader):
-                data = data.to(self.dev)
-                target = target.to(self.dev)
-                output = self.model(data)
+            for i, (mixture, clean, name) in enumerate(self.validation_data_loader):
+                """
+                Notes:
+                    1. 提取带噪语音 LPS 特征与原始相位
+                    2. 将带噪语音 LPS 特征做拓展，并分帧
+                    3. 每 7 帧带噪 LPS 特征送入网络中，得到一帧降噪过的语音
+                    4. 拼接降噪过的语音，使用带噪语音的相位还原为时域信号
+                """
+                clean = clean[0]
+                name = name[0]
+                mixture = mixture[0]
+
+                mixture_lps = cal_lps(mixture)
+                mixture_phase = phase(mixture)
+
+                mixture_lps = unfold_spectrum(mixture_lps, n_pad=3)
+
+                enhanced_lps = []
+                for mixture_frames in torch.chunk(mixture_lps, mixture_lps.shape[1] // 7, dim=1):
+                    enhanced_frame = self.model(mixture_frames.to(self.dev)).reshape(-1, 1).cpu().numpy()
+                    enhanced_lps.append(enhanced_frame)
+
+                enhanced_lps = np.concatenate(enhanced_lps, axis=1)
+                assert mixture_frames.shape == (257, 7)
+                assert mixture_lps.shape[1] / 7 == enhanced_lps.shape[1]
+
+                enhanced_mag = lps_to_mag(enhanced_lps)
+                enhanced = rebuild_waveform(enhanced_mag, mixture_phase)
+
+                min_length = min(len(mixture), len(enhanced), len(clean))
+                mixture = mixture[:min_length]
+                enhanced = enhanced[:min_length]
+                clean = clean[:min_length]
 
                 self.viz.writer.add_audio(
-                    f"语音文件/{basename_text[0]}带噪语音", data, epoch, sample_rate=16000)
+                    f"语音文件/{name[0]}带噪语音", mixture, epoch, sample_rate=16000)
                 self.viz.writer.add_audio(
-                    f"语音文件/{basename_text[0]}降噪语音", output, epoch, sample_rate=16000)
+                    f"语音文件/{name[0]}降噪语音", enhanced, epoch, sample_rate=16000)
                 self.viz.writer.add_audio(
-                    f"语音文件/{basename_text[0]}纯净语音", target, epoch, sample_rate=16000)
+                    f"语音文件/{name[0]}纯净语音", clean, epoch, sample_rate=16000)
 
                 fig, ax = plt.subplots(3, 1)
-                for j, y in enumerate([data, output, target]):
+                for j, y in enumerate([mixture, enhanced, clean]):
                     ax[j].set_title("mean: {:.3f}, std: {:.3f}, max: {:.3f}, min: {:.3f}".format(
                         torch.mean(y),
                         torch.std(y),
@@ -107,11 +134,11 @@ class Trainer(BaseTrainer):
                 plt.tight_layout()
 
                 self.viz.writer.add_figure(
-                    f"语音波形图像/{basename_text}", fig, epoch)
+                    f"语音波形图像/{name}", fig, epoch)
 
-                ny = data.cpu().numpy().reshape(-1)
-                dy = output.cpu().numpy().reshape(-1)
-                cy = target.cpu().numpy().reshape(-1)
+                ny = mixture.cpu().numpy().reshape(-1)
+                dy = enhanced.cpu().numpy().reshape(-1)
+                cy = clean.cpu().numpy().reshape(-1)
 
                 stoi_c_n.append(compute_STOI(cy, ny, sr=16000))
                 stoi_c_d.append(compute_STOI(cy, dy, sr=16000))
@@ -164,7 +191,7 @@ class Trainer(BaseTrainer):
             if self.visualize_metrics_period != 0 and epoch % self.visualize_metrics_period == 0:
                 # 测试一轮，并绘制波形文件
                 print(f"[{timer.duration()} seconds] 训练结束，开始计算评价指标...")
-                score = self._test_epoch(epoch)
+                score = self._validation_epoch(epoch)
 
                 if self._is_best_score(score):
                     self._save_checkpoint(epoch, is_best=True)
