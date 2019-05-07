@@ -1,7 +1,5 @@
-from pystoi.stoi import stoi
-import os
-import multiprocessing
 from pypesq import pesq
+from pystoi.stoi import stoi
 
 
 def compute_STOI(clean_signal, noisy_signal, sr=16000):

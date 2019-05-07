@@ -8,87 +8,58 @@ class TrainDataset(Dataset):
     定义训练集
     """
 
-    def __init__(self, mixture_dataset, clean_dataset, limit=None, offset=0):
+    def __init__(self,
+                 mixture_dataset="/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/DNN/pad_3_400_50/train/mixture.npy",
+                 mask_dataset="/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/DNN/pad_3_400_50/train/mask.npy",
+                 limit=None,
+                 offset=0):
         """
         构建训练数据集
 
         Args:
             mixture_dataset (str): 带噪语音数据集
-            clean_dataset (str): 纯净语音数据集
+            mask_dataset (str): 纯净语音数据集
             limit (int): 数据集的数量上限
             offset (int): 数据集的起始位置的偏移值
-            apply_normalization (bool): 是否对输入进行规范化（减均值，除标准差）
         """
         mixture_dataset = Path(mixture_dataset)
-        clean_dataset = Path(clean_dataset)
+        mask_dataset = Path(mask_dataset)
 
-        assert mixture_dataset.exists() and clean_dataset.exists(), "训练数据集不存在"
+        assert mixture_dataset.exists() and mask_dataset.exists(), "训练数据集不存在"
 
         print(f"Loading mixture dataset {mixture_dataset.as_posix()} ...")
-        self.mixture_dataset: dict = np.load(mixture_dataset.as_posix()).item()
-        print(f"Loading clean dataset {clean_dataset.as_posix()} ...")
-        self.clean_dataset: dict = np.load(clean_dataset.as_posix()).item()
-        assert len(self.mixture_dataset) % len(self.clean_dataset) == 0, \
-            "mixture dataset 的长度不是 clean dataset 的整数倍"
+        mixture_dataset_dict: dict = np.load(mixture_dataset.as_posix()).item()
 
-        print(f"The len of fully dataset is {len(self.mixture_dataset)}.")
+        print(f"Loading mask dataset {mask_dataset.as_posix()} ...")
+        mask_dataset_dict: dict = np.load(mask_dataset.as_posix()).item()
+
+        # 我的内存足够大，内存速度也足够快，我以空间换时间
+        mixture_dataset = []
+        mask_dataset = []
+        for mixture_name, mixture_padded_lps in mixture_dataset_dict.items():
+            # [ [257,7], [257, 7], ...]
+            mixture_lps_chunks = np.split(mixture_padded_lps, mixture_padded_lps.shape[1] // 7, axis=1)
+            mixture_dataset += mixture_lps_chunks
+
+            # [[257, 1], [257, 1]]
+            mask_lps = mask_dataset_dict[mixture_name]
+            mask_lps_chunks = np.split(mask_lps, mask_lps.shape[1], axis=1)
+            mask_dataset += mask_lps_chunks
+
+        assert len(mixture_dataset) == len(mask_dataset)
+
+        self.length = len(mixture_dataset)
+        self.mixture_dataset = mixture_dataset
+        self.mask_dataset = mask_dataset
+
         print(f"The limit is {limit}.")
         print(f"The offset is {offset}.")
-
-        self.mapping_table = {}
-        self.length = 0
-        for k, v in self.mixture_dataset.items():
-            assert v.shape[1] % 7 == 0
-            self.mapping_table[k] = v.shape[1] // 7
-            self.length += v.shape[1]
-
-        self.mapping_table_keys = list(self.mapping_table.keys())
-
-        # if limit is None:
-        #     limit = len(self.mixture_dataset)
-        #
-        # self.keys = list(self.mixture_dataset.keys()) # 语句数量
-        # self.keys.sort()
-        # self.keys = self.keys[offset: offset + limit]
-        #
-        # self.length = len(self.keys)
         print(f"Finish, len(finial dataset) == {self.length}.")
 
     def __len__(self):
         return self.length
 
-    def __getitem__(self, frame_index):
-        i, n_pad = 0, 7
-
-        mixture_frames = None
-        clean_frame = None
-        name = ""
-
-        # e.g. ("0001_babble_-5", 238)
-        for i_in_dict, (name_of_frames, n_frames) in enumerate(self.mapping_table.items()):
-            if i + n_frames < frame_index:
-                i += n_frames
-            elif i + n_frames > frame_index:
-                name = name_of_frames
-                mixture_lps = self.mixture_dataset[name_of_frames]
-                clean_lps = self.clean_dataset[name_of_frames.split("_")[0]]
-
-                mixture_offset_in_lps = (frame_index - i) * n_pad  # 当前 7 帧在 lps 中偏移值
-                clean_offset_in_lps = frame_index - i  # 当前 1 帧在 lps 中偏移值
-
-                mixture_frames = mixture_lps[:, mixture_offset_in_lps: (mixture_offset_in_lps + n_pad)]
-                clean_frame = clean_lps[:, clean_offset_in_lps].reshape(-1, 1)
-                break
-            else:
-                name_of_frames = self.mapping_table_keys[i_in_dict + 1]
-                name = name_of_frames
-                mixture_lps = self.mixture_dataset[name_of_frames]  # 最开始的 7 帧
-                clean_lps = self.clean_dataset[name_of_frames.split("_")[0]]  # 首帧
-                mixture_frames = mixture_lps[:, :n_pad]
-                clean_frame = clean_lps[:, 0].reshape(-1, 1)
-                break
-
-        print(mixture_frames.shape)
-        print(clean_frame.shape)
-        assert mixture_frames.shape == (257, 7) and clean_frame.shape == (257, 1)
-        return mixture_frames, clean_frame, name
+    def __getitem__(self, idx):
+        mixture = self.mixture_dataset[idx].reshape(-1) # DNN 作为网络，要求铺平
+        mask = self.mask_dataset[idx].reshape(-1)
+        return mixture, mask

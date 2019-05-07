@@ -32,7 +32,7 @@ def main(config, resume):
 
     train_dataset = TrainDataset(
         mixture_dataset=config["train_dataset"]["mixture"],
-        clean_dataset=config["train_dataset"]["clean"],
+        mask_dataset=config["train_dataset"]["clean"],
         limit=config["train_dataset"]["limit"],
         offset=config["train_dataset"]["offset"],
     )

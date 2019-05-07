@@ -10,7 +10,7 @@ class DNN(nn.Module):
             # Layer 1
             nn.Linear(n_input_frames * n_fft, n_hidden_units),
             # https://www.zhihu.com/search?type=content&q=batch%20normalization
-            # Batch Norm 与 activate function 的使用顺序
+            # Batch Norm 与 Activation function 的使用顺序
             nn.BatchNorm1d(n_hidden_units),
             nn.ReLU(),
 

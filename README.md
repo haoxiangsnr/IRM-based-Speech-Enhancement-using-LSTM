@@ -1,16 +1,20 @@
 # IRM based Speech Enhancement using DNN
 
-Inspired by [funcwj](https://github.com/funcwj)'s [nn-ideal-mask](https://github.com/funcwj/nn-ideal-mask). Compared to his project:
+Practice project, inspired by [funcwj](https://github.com/funcwj)'s [nn-ideal-mask](https://github.com/funcwj/nn-ideal-mask). 
 
+Compared to his project:
 - Increased visualization of validation data
 - More structured
-- Support PyTorch v1.1
-
+- Adjust the order of Batch Normalization and ReLU function
+- Support new PyTorch version(v1.1)
 
 ## ToDo
 
-- [ ] 更新至 PyTorch 1.1，使用 PyTorch 内置的 Tensorboard 相关函数替换掉 TensorboardX
-- [ ] 新增多帧到单帧映射的数据集
-- [ ] 构建适合现有数据集的 DataLoader，并整合至 train.py 中
-- [ ] 参考 SNR-based DL DNN 构建验证逻辑，以及可视化
-- [ ] 跑通模型
+- [x] Preparation of dataset
+- [x] DNN models
+- [x] Training logic
+- [x] Validation logic
+- [x] Visualization of validation set (waveform, audio, config)
+- [x] PESQ and STOI metrics
+- [x] Optimize Config parameters
+- [ ] Test script

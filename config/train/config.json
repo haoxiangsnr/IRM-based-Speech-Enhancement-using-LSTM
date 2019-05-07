@@ -3,9 +3,9 @@
     "n_gpu": 1,
     "seed": 0,
     "use_cudnn": true,
-    "save_location": "/media/imucs/DataDisk/haoxiang/Experiment/UNet/IRM",
+    "save_location": "/media/imucs/DataDisk/haoxiang/Experiment/DNN/IRM",
     "description": "IRM DNN",
-    "visualize_metrics_period": 5,
+    "visualize_metrics_period": 1,
     "model": {
         "module": "models.dnn",
         "main": "DNN",
@@ -25,16 +25,16 @@
     },
     "trainer": {
         "epochs": 300,
-        "save_period": 0
+        "save_period": 1
     },
     "train_dataset": {
         "mixture": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/DNN/pad_3_400_50/train/mixture.npy",
-        "clean": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/DNN/pad_3_400_50/train/clean.npy",
+        "clean": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/DNN/pad_3_400_50/train/mask.npy",
         "limit": null,
         "offset": 0,
         "shuffle": true,
         "num_workers": 40,
-        "batch_size": 150
+        "batch_size": 1500
     },
     "valid_dataset": {
         "mixture": "/media/imucs/DataDisk/haoxiang/Release/speech_enhancement/DNN/pad_3_400_50/test/mixture.npy",
