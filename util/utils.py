@@ -311,7 +311,7 @@ def prepare_empty_dir(dirs, resume=False):
 
 
 def pad_to_longest_in_one_batch(batch):
-    """According to the longest item to pad data in one batch.
+    """According to the longest item to pad dataset in one batch.
 
     Notes:
         usage of pad_sequence:
@@ -327,23 +327,23 @@ def pad_to_longest_in_one_batch(batch):
         ]
     """
     noisy_mag_list = []
-    noise_mag_list = []
+    mask_mag_list = []
     clean_mag_list = []
     n_frames_list = []
 
-    for noisy_mag, noise_mag, clean_mag, n_frames in batch:
+    for noisy_mag, mask, clean_mag, n_frames in batch:
         noisy_mag_list.append(torch.t(torch.tensor(noisy_mag)))  # the shape of tensor is (T, F).
-        noise_mag_list.append(torch.t(torch.tensor(noise_mag)))
+        mask_mag_list.append(torch.t(torch.tensor(mask)))
         clean_mag_list.append(torch.t(torch.tensor(clean_mag)))
         n_frames_list.append(n_frames)
 
     noisy_mag_one_batch = pad_sequence(noisy_mag_list)  # the shape is (longest T, len(seq_list), F)
-    noise_mag_one_batch = pad_sequence(noise_mag_list)
+    mask_one_batch = pad_sequence(mask_mag_list)
     clean_mag_one_batch = pad_sequence(clean_mag_list)
 
     noisy_mag_one_batch = noisy_mag_one_batch.permute(1, 0, 2)  # the shape is (len(seq_list), longest T, F)
-    noise_mag_one_batch = noise_mag_one_batch.permute(1, 0, 2)
+    mask_one_batch = mask_one_batch.permute(1, 0, 2)
     clean_mag_one_batch = clean_mag_one_batch.permute(1, 0, 2)
 
     # (batch_size, longest T, F)
-    return noisy_mag_one_batch, noise_mag_one_batch, clean_mag_one_batch, n_frames_list
+    return noisy_mag_one_batch, mask_one_batch, clean_mag_one_batch, n_frames_list

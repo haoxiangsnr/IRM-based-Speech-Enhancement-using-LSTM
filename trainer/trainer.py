@@ -28,13 +28,14 @@ class Trainer(BaseTrainer):
     def _train_epoch(self, epoch):
         loss_total = 0.0
 
-        for noisy_mag, _, mask in self.train_dataloader:
+        for noisy_mag, _, mask, n_frames_list in self.train_dataloader:
             self.optimizer.zero_grad()
 
             noisy_mag = noisy_mag.to(self.device)
+            mask = mask.to(self.device)
 
             pred_mask = self.model(noisy_mag)
-            loss = self.loss_function(pred_mask, mask)
+            loss = self.loss_function(pred_mask, mask, n_frames_list)
             loss_total += loss
 
             loss.backward()
@@ -71,7 +72,10 @@ class Trainer(BaseTrainer):
             pred_clean_mag = torch.t(pred_clean_mag_tensor.squeeze(0)).detach().cpu().numpy()  # (F, T)
             pred_clean_y = librosa.istft(pred_clean_mag * noisy_phase, hop_length=160, win_length=320)
 
-            assert len(clean_y) == len(pred_clean_y) == len(noisy_y)
+            min_len = min(len(noisy_y), len(pred_clean_y), len(clean_y))
+            noisy_y = noisy_y[:min_len]
+            pred_clean_y = pred_clean_y[:min_len]
+            clean_y = clean_y[:min_len]
 
             # Visualize audio
             if i <= visualize_audio_limit:
@@ -106,7 +110,7 @@ class Trainer(BaseTrainer):
                                       f"std: {np.std(mag):.3f}, "
                                       f"max: {np.max(mag):.3f}, "
                                       f"min: {np.min(mag):.3f}")
-                    librosa.display.specshow(librosa.amplitude_to_db(mag), cmap="magma", y_axis="linear", ax=axes[k])
+                    librosa.display.specshow(librosa.amplitude_to_db(mag), cmap="magma", y_axis="linear", ax=axes[k], sr=16000)
                 plt.tight_layout()
                 self.writer.add_figure(f"Spectrogram/{name}", fig, epoch)
 

@@ -22,8 +22,6 @@ class IRMDataset(Dataset):
                  ):
         """Construct training dataset.
 
-        TODO: 兼容测试
-
         Args:
             noise_dataset: List, which saved the paths of noise files.
             clean_dataset: List, which saved the paths of clean wav files.
@@ -53,7 +51,7 @@ class IRMDataset(Dataset):
         # "-1" means use all CPUs.
         # "1" means not apply multithreading.
         # "3" means use 3 CPUs.
-        all_noise_data = Parallel(n_jobs=n_jobs)(delayed(load_noise_file)(f_path, sr=16000) for f_path in tqdm(noise_f_paths, desc="Loading noise file"))
+        all_noise_data = Parallel(n_jobs=n_jobs)(delayed(load_noise_file)(f_path, sr=16000) for f_path in tqdm(noise_f_paths, desc=f"Loading {mode} noise files"))
 
         self.length = len(clean_f_paths)
         self.all_noise_data = all_noise_data
@@ -79,10 +77,9 @@ class IRMDataset(Dataset):
             clean_mag, _ = librosa.magphase(librosa.stft(clean_y, n_fft=320, hop_length=160, win_length=320))
             noise_mag, _ = librosa.magphase(librosa.stft(noise_y, n_fft=320, hop_length=160, win_length=320))
             noisy_mag, _ = librosa.magphase(librosa.stft(noisy_y, n_fft=320, hop_length=160, win_length=320))
-            # TODO 重新修改，添加 n_frames 的判别
             mask = np.sqrt(clean_mag ** 2 / (clean_mag + noise_mag) ** 2)
             n_frames = clean_mag.shape[-1]
-            return noisy_mag, noise_mag, clean_mag, n_frames
+            return noisy_mag, clean_mag, mask, n_frames
         elif self.mode == "validation":
             return noisy_y, clean_y, name
         else:

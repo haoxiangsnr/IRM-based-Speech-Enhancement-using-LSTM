@@ -17,13 +17,13 @@
         }
     },
     "model": {
-        "module": "model.lstm",
+        "module": "model.lstm_model",
         "main": "LSTMModel",
         "args": {}
     },
     "loss_function": {
         "module": "util.loss",
-        "main": "mse_loss",
+        "main": "mse_loss_for_variable_length_data",
         "args": {}
     },
     "optimizer": {

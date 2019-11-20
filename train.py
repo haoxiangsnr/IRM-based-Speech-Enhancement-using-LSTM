@@ -7,7 +7,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from trainer.trainer import Trainer
-from util.utils import initialize_config
+from util.utils import initialize_config, pad_to_longest_in_one_batch
 
 
 def main(config, resume):
@@ -19,7 +19,8 @@ def main(config, resume):
         batch_size=config["train_dataloader"]["batch_size"],
         num_workers=config["train_dataloader"]["num_workers"],
         shuffle=config["train_dataloader"]["shuffle"],
-        pin_memory=config["train_dataloader"]["pin_memory"]  # Set it to False for very small dataset, otherwise True.
+        pin_memory=config["train_dataloader"]["pin_memory"],  # Set it to False for very small dataset, otherwise True.
+        collate_fn=pad_to_longest_in_one_batch
     )
     validation_dataloader = DataLoader(
         dataset=initialize_config(config["validation_dataset"]),
