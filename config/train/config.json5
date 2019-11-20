@@ -1,0 +1,73 @@
+{
+    "seed": 0,
+    "description": "null",
+    "root_dir": "/media/imucs/DataDisk/haoxiang/Experiment/IRM",
+    "cudnn_deterministic": false,
+    "trainer": {
+        "epochs": 1200,
+        "save_checkpoint_interval": 10,
+        "validation": {
+            "interval": 10,
+            "find_max": true,
+            "custom": {
+                "visualize_audio_limit": 20,
+                "visualize_waveform_limit": 20,
+                "visualize_spectrogram_limit": 20
+            }
+        }
+    },
+    "model": {
+        "module": "model.lstm",
+        "main": "LSTMModel",
+        "args": {}
+    },
+    "loss_function": {
+        "module": "util.loss",
+        "main": "mse_loss",
+        "args": {}
+    },
+    "optimizer": {
+        "lr": 0.0002,
+        "beta1": 0.0,
+        "beta2": 0.9
+    },
+    "train_dataset": {
+        "module": "dataset.irm_dataset",
+        "main": "IRMDataset",
+        "args": {
+            "noise_dataset": "/home/imucs/Datasets/Build-SE-Dataset-V2/Data/noise.txt",
+            "clean_dataset": "/home/imucs/Datasets/Build-SE-Dataset-V2/Data/clean.txt",
+            "snr_list": [
+                "-5",
+                "0"
+            ],
+            "limit": 900,
+            "offset": 0,
+            "mode": "train",
+            "n_jobs": -1
+        }
+    },
+    "validation_dataset": {
+        "module": "dataset.irm_dataset",
+        "main": "IRMDataset",
+        "args": {
+            "noise_dataset": "/home/imucs/Datasets/Build-SE-Dataset-V2/Data/noise.txt",
+            "clean_dataset": "/home/imucs/Datasets/Build-SE-Dataset-V2/Data/clean.txt",
+            "snr_list": [
+                "-5",
+                "0",
+                "5"
+            ],
+            "limit": 50,
+            "offset": 900,
+            "mode": "validation",
+            "n_jobs": 1
+        }
+    },
+    "train_dataloader": {
+        "batch_size": 32,
+        "num_workers": 32,
+        "shuffle": true,
+        "pin_memory": true
+    }
+}

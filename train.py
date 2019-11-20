@@ -1,64 +1,38 @@
 import argparse
-import json
 import os
 
+import json5
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from data.test_dataset import TestDataset
-from data.train_dataset import TrainDataset
 from trainer.trainer import Trainer
-from utils.utils import initialize_config
+from util.utils import initialize_config
 
 
 def main(config, resume):
-    """
-    训练脚本的入口函数
-    
-    Notes:
-        1. 加载数据集
-        2. 初始化模型
-        3. 设置优化器
-        4. 选择损失函数
-        5. 训练脚本 run
-
-    Args:
-        config (dict): 配置项
-        resume (bool): 是否加载最近一次存储的模型断点
-    """
-    torch.manual_seed(config["seed"])
+    torch.manual_seed(config["seed"])  # both CPU and GPU
     np.random.seed(config["seed"])
 
-    train_dataset = TrainDataset(
-        mixture_dataset=config["train_dataset"]["mixture"],
-        mask_dataset=config["train_dataset"]["clean"],
-        limit=config["train_dataset"]["limit"],
-        offset=config["train_dataset"]["offset"],
+    train_dataloader = DataLoader(
+        dataset=initialize_config(config["train_dataset"]),
+        batch_size=config["train_dataloader"]["batch_size"],
+        num_workers=config["train_dataloader"]["num_workers"],
+        shuffle=config["train_dataloader"]["shuffle"],
+        pin_memory=config["train_dataloader"]["pin_memory"]  # Set it to False for very small dataset, otherwise True.
     )
-    train_data_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=config["train_dataset"]["batch_size"],
-        num_workers=config["train_dataset"]["num_workers"],
-        shuffle=config["train_dataset"]["shuffle"]
-    )
-
-    valid_dataset = TestDataset(
-        mixture_dataset=config["valid_dataset"]["mixture"],
-        clean_dataset=config["valid_dataset"]["clean"],
-        limit=config["valid_dataset"]["limit"],
-        offset=config["valid_dataset"]["offset"],
-    )
-
-    valid_data_loader = DataLoader(
-        dataset=valid_dataset
+    validation_dataloader = DataLoader(
+        dataset=initialize_config(config["validation_dataset"]),
+        batch_size=1,
+        num_workers=1,
     )
 
     model = initialize_config(config["model"])
 
     optimizer = torch.optim.Adam(
         params=model.parameters(),
-        lr=config["optimizer"]["lr"]
+        lr=config["optimizer"]["lr"],
+        betas=(config["optimizer"]["beta1"], config["optimizer"]["beta2"])
     )
 
     loss_function = initialize_config(config["loss_function"])
@@ -67,27 +41,23 @@ def main(config, resume):
         config=config,
         resume=resume,
         model=model,
+        optimizer=optimizer,
         loss_function=loss_function,
-        optim=optimizer,
-        train_dl=train_data_loader,
-        validation_dl=valid_data_loader,
+        train_dl=train_dataloader,
+        validation_dl=validation_dataloader,
     )
 
     trainer.train()
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='IRM Estimation using DNN in Speech Enhancement')
-    parser.add_argument("-C", "--config", required=True, type=str, help="训练配置文件（*.json）")
-    parser.add_argument('-D', '--device', default=None, type=str, help="本次实验使用的 GPU 索引，e.g. '1,2,3'")
-    parser.add_argument("-R", "--resume", action="store_true", help="是否从最近的一个断点处继续训练")
+    parser = argparse.ArgumentParser(description="IRM based speech enhancement using LSTM")
+    parser.add_argument("-C", "--configuration", required=True, type=str, help="Configuration (*.json).")
+    parser.add_argument("-R", "--resume", action="store_true", help="Resume experiment from latest checkpoint.")
     args = parser.parse_args()
 
-    if args.device:
-        os.environ["CUDA_VISIBLE_DEVICES"] = args.device
+    configuration = json5.load(open(args.configuration))
+    configuration["experiment_name"], _ = os.path.splitext(os.path.basename(args.configuration))
+    configuration["config_path"] = args.configuration
 
-    # load config file
-    config = json.load(open(args.config))
-    config["train_config_path"] = args.config
-
-    main(config, resume=args.resume)
+    main(configuration, resume=args.resume)

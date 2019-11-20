@@ -17,4 +17,8 @@ Compared to his project:
 - [x] Visualization of validation set (waveform, audio, config)
 - [x] PESQ and STOI metrics
 - [x] Optimize config parameters
-- [ ] Test script
+- [x] Test script
+
+## 须知
+
+当前项目并非严谨的技术项目，可能存在某些错误或异常。如果你发现其中的问题，请直接提交 pull request。

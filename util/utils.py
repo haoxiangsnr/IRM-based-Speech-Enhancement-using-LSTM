@@ -2,11 +2,13 @@ import importlib
 import json
 import math
 import os
+import random
 import time
 
 import librosa
 import numpy as np
 import torch
+from torch.nn.utils.rnn import pad_sequence
 
 
 class ExecutionTime:
@@ -14,13 +16,11 @@ class ExecutionTime:
     Usage:
         timer = ExecutionTime()
         <Something...>
-        print(f'Finished in {timer.duration()} seconds.')
+        print(f"Finished in {timer.duration()} seconds.")
     """
-
 
     def __init__(self):
         self.start_time = time.time()
-
 
     def duration(self):
         return time.time() - self.start_time
@@ -139,13 +139,16 @@ def sample_dataset_aligned(dataset_A, dataset_B, n_frames=128):
 
     return sampling_dataset_A, sampling_dataset_B
 
+
 def calculate_l_out(l_in, kernel_size, stride, dilation=1, padding=0):
     # https://pytorch.org/docs/stable/nn.html#conv1d
     return math.floor(((l_in + 2 * padding - dilation * (kernel_size - 1) - 1) / stride) + 1)
 
+
 def calculate_same_padding(l_in, kernel_size, stride, dilation=1):
     # https://pytorch.org/docs/stable/nn.html#conv1d
     return math.ceil(((l_in - 1) * stride + 1 + dilation * (kernel_size - 1) - l_in) / 2)
+
 
 def initialize_config_in_single_module(module_cfg, module):
     """
@@ -160,12 +163,13 @@ def initialize_config_in_single_module(module_cfg, module):
     # 调用模块内对应的函数，返回函数执行后的返回值
     return getattr(module, module_cfg["type"])(**module_cfg["args"])
 
+
 def initialize_config(module_cfg):
     """
     根据配置项，动态加载对应的模块，并将参数传入模块内部的指定函数
     eg，配置文件如下：
         module_cfg = {
-            "module": "models.unet",
+            "module": "model.unet",
             "main": "UNet",
             "args": {...}
         }
@@ -182,12 +186,15 @@ def initialize_config(module_cfg):
     module = importlib.import_module(module_cfg["module"])
     return getattr(module, module_cfg["main"])(**module_cfg["args"])
 
+
 def write_json(content, path):
     with open(path, "w") as handle:
         json.dump(content, handle, indent=2, sort_keys=False)
 
+
 def apply_mean_std(y):
     return (y - np.mean(y)) / np.std(y)
+
 
 def cal_lps(y, pad=0):
     D = librosa.stft(y, n_fft=512, hop_length=256, window='hamming')
@@ -197,18 +204,20 @@ def cal_lps(y, pad=0):
         lps = np.concatenate((np.zeros((257, pad)), lps, np.zeros((257, pad))), axis=1)
     return lps
 
+
 def mag(y):
     D = librosa.stft(y, n_fft=512, hop_length=256, window='hamming')
     return np.abs(D)
+
 
 def input_normalization(m):
     mean = np.mean(m, axis=0)
     std_var = np.std(m, axis=0)
     return (m - mean) / std_var
 
+
 def unfold_spectrum(spec, n_pad=3):
-    """
-    对频谱应用滑窗操作
+    """对频谱应用滑窗操作
 
     Args:
         spec (np.array): 频谱，(n_fft, T)
@@ -230,13 +239,111 @@ def unfold_spectrum(spec, n_pad=3):
 
     return spec
 
+
 def lps_to_mag(lps):
     return np.power(np.exp(lps), 1 / 2)
 
+
 def rebuild_waveform(mag, noisy_phase):
     return librosa.istft(mag * noisy_phase, hop_length=256, win_length=512, window='hamming')
+
 
 def phase(y):
     D = librosa.stft(y, n_fft=512, hop_length=256, window='hamming')
     _, phase = librosa.magphase(D)
     return phase
+
+
+def add_noise_for_waveform(s, n, db):
+    alpha = np.sqrt(
+        np.sum(s ** 2) / (np.sum(n ** 2) * 10 ** (db / 10))
+    )
+    mix = s + alpha * n
+    return mix
+
+
+def synthesis_noisy_y(clean_y, noise_y, snr):
+    """合成带噪语音
+
+    Args:
+        clean_y: 纯净语音的波形
+        noise_y: 噪声的波形
+        snr(str): 信噪比
+    """
+
+    assert len(clean_y) > 0 and len(noise_y) > 0, f"The length of the noise file is {len(noise_y)}, and the length of the clean file is {len(clean_y)}."
+    assert type(snr) == str, "Specify the snr of the string type."
+
+    if len(clean_y) > len(noise_y):
+        # 绝大多数情况下，噪声的长度都远大于语音的长度。
+        # 如果语音的长度大于噪声的长度，则将噪声重复多次，直至达到语音的长度。此时噪声的长度会等于或者大于语音长度
+        # 从噪声中随机切出与语音等长的片段用于后续的合成
+        pad_factor = len(clean_y) // len(noise_y)  # 此处计算的拓展系数为需要额外拓展的次数
+        padded_noise_y = noise_y
+        for i in range(pad_factor):
+            padded_noise_y = np.concatenate((padded_noise_y, noise_y))
+        noise_y = padded_noise_y
+
+    # Randomly crop noise segment, the length of the noise segment is equal to the length of the clean file.
+    s = random.randint(0, len(noise_y) - len(clean_y) - 1)
+    e = s + len(clean_y)
+    noise_y = noise_y[s:e]
+    assert len(noise_y) == len(clean_y), f"The length of the noise file is {len(noise_y)}, and the length of the clean file is {len(clean_y)}."
+
+    noisy_y = add_noise_for_waveform(clean_y, noise_y, int(snr))
+    return clean_y, noise_y, noisy_y
+
+
+def prepare_empty_dir(dirs, resume=False):
+    """
+    if resume experiment, assert the dirs exist,
+    if not resume experiment, make dirs.
+
+    Args:
+        dirs (list): directors list
+        resume (bool): whether to resume experiment, default is False
+    """
+    for dir_path in dirs:
+        if resume:
+            assert dir_path.exists()
+        else:
+            dir_path.mkdir(parents=True, exist_ok=True)
+
+
+def pad_to_longest_in_one_batch(batch):
+    """According to the longest item to pad data in one batch.
+
+    Notes:
+        usage of pad_sequence:
+            seq_list = [(L_1, dims), (L_2, dims), ...]
+            item.size() must be (L, dims)
+            return (longest_len, len(seq_list), dims)
+
+    Args:
+        batch: [
+            (noisy_mag_1, noise_mag_1, clean_mag_1, n_frames_1),
+            (noisy_mag_2, noise_mag_2, clean_mag_2, n_frames_2),
+            ...
+        ]
+    """
+    noisy_mag_list = []
+    noise_mag_list = []
+    clean_mag_list = []
+    n_frames_list = []
+
+    for noisy_mag, noise_mag, clean_mag, n_frames in batch:
+        noisy_mag_list.append(torch.t(torch.tensor(noisy_mag)))  # the shape of tensor is (T, F).
+        noise_mag_list.append(torch.t(torch.tensor(noise_mag)))
+        clean_mag_list.append(torch.t(torch.tensor(clean_mag)))
+        n_frames_list.append(n_frames)
+
+    noisy_mag_one_batch = pad_sequence(noisy_mag_list)  # the shape is (longest T, len(seq_list), F)
+    noise_mag_one_batch = pad_sequence(noise_mag_list)
+    clean_mag_one_batch = pad_sequence(clean_mag_list)
+
+    noisy_mag_one_batch = noisy_mag_one_batch.permute(1, 0, 2)  # the shape is (len(seq_list), longest T, F)
+    noise_mag_one_batch = noise_mag_one_batch.permute(1, 0, 2)
+    clean_mag_one_batch = clean_mag_one_batch.permute(1, 0, 2)
+
+    # (batch_size, longest T, F)
+    return noisy_mag_one_batch, noise_mag_one_batch, clean_mag_one_batch, n_frames_list
