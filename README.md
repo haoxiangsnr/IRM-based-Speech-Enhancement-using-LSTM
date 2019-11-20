@@ -119,15 +119,15 @@ TODO
         "beta2": 0.999  // Adam动量参数2
     },
     "train_dataset": {
-        "module": "dataset.waveform_dataset",
-        "main": "WaveformDataset",
+        "module": "dataset.irm_dataset",
+        "main": "IRMDataset",
         "args": {
          // 详见 dataset/*_dataset.py
         }
     },
     "validation_dataset": {
-        "module": "dataset.waveform_dataset",
-        "main": "WaveformDataset",
+        "module": "dataset.irm_dataset",
+        "main": "IRMDataset",
         "args": {
         // 详见 dataset/*_dataset.py
         }

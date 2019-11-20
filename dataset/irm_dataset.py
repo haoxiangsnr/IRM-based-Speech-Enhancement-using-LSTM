@@ -15,8 +15,8 @@ class IRMDataset(Dataset):
                  noise_dataset="/home/imucs/Datasets/Build-SE-Dataset-V2/Data/noise.txt",
                  clean_dataset="/home/imucs/Datasets/Build-SE-Dataset-V2/Data/clean.txt",
                  snr_list=None,
-                 limit=None,
                  offset=700,
+                 limit=None,
                  mode="train",
                  n_jobs=-1
                  ):
@@ -25,10 +25,27 @@ class IRMDataset(Dataset):
         Args:
             noise_dataset: List, which saved the paths of noise files.
             clean_dataset: List, which saved the paths of clean wav files.
-            limit: limit of clean_dataset
-            offset: offset of clean_dataset
-            n_jobs: see joblib (https://joblib.readthedocs.io/en/latest/parallel.html).
-            mode: if train_mode, return noisy magnitude, mask.
+            offset: offset of clean_dataset.
+            limit: limit of clean_dataset from offset position.
+            n_jobs: Use multithreading to pre-load noise files, see joblib (https://joblib.readthedocs.io/en/latest/parallel.html).
+            mode:
+                "train": return noisy magnitude, mask.
+                "validation": return noisy_y, clean_y, name
+                "test": return noisy_y, name
+
+        Notes:
+            clean_dataset (*.txt):
+                /home/imucs/Datasets/Build-SE-Dataset-V2/Data/TIMIT/data/lisa/data/timit/raw/TIMIT/TRAIN/DR1/FSJK1/SI696.WAV
+                /home/imucs/Datasets/Build-SE-Dataset-V2/Data/TIMIT/data/lisa/data/timit/raw/TIMIT/TRAIN/DR1/FSJK1/SI696.WAV
+                /home/imucs/Datasets/Build-SE-Dataset-V2/Data/TIMIT/data/lisa/data/timit/raw/TIMIT/TRAIN/DR1/FSJK1/SI696.WAV
+                ...
+
+            noise_dataset (*.txt):
+                /home/imucs/Datasets/Build-SE-Dataset-V2/Data/Noise/bus.wav
+                /home/imucs/Datasets/Build-SE-Dataset-V2/Data/Noise/cafe.wav
+                /home/imucs/Datasets/Build-SE-Dataset-V2/Data/Noise/ped.wav
+                /home/imucs/Datasets/Build-SE-Dataset-V2/Data/Noise/str.wav
+                ...
         """
         super().__init__()
         assert mode in ["train", "validation", "test"], "mode parameter must be one of 'train', 'validation', and 'test'."
